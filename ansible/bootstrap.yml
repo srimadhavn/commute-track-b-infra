@@ -1,9 +1,25 @@
+
 ---
 - name: Configure Commute Planner infrastructure target
   hosts: commute_targets
-  gather_facts: true
+  gather_facts: false
 
   tasks:
+    - name: Bootstrap Python if missing
+      ansible.builtin.raw: |
+        if command -v python3 >/dev/null 2>&1; then
+          echo PYTHON_ALREADY_PRESENT
+        else
+          apt-get update &&
+          apt-get install -y python3 &&
+          echo PYTHON_INSTALLED
+        fi
+      register: python_bootstrap
+      changed_when: "'PYTHON_INSTALLED' in python_bootstrap.stdout"
+
+    - name: Gather system facts
+      ansible.builtin.setup:
+
     - name: Install required system packages
       ansible.builtin.apt:
         name:
@@ -24,3 +40,4 @@
     - name: Display operating system information
       ansible.builtin.debug:
         msg: "Configured {{ ansible_distribution }} {{ ansible_distribution_version }}"
+
