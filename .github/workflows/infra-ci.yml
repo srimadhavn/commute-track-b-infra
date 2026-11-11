@@ -1,0 +1,75 @@
+
+name: Infrastructure CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    name: Terraform Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.17.2"
+          terraform_wrapper: false
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive
+
+      - name: Initialize Terraform
+        run: terraform init -backend=false -input=false
+
+      - name: Validate Terraform
+        run: terraform validate
+
+      - name: Generate Terraform plan
+        run: terraform plan -input=false
+
+  ansible:
+    name: Ansible Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Ansible lint
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install ansible-lint
+
+      - name: Install Ansible collections
+        run: |
+          . .venv/bin/activate
+          ansible-galaxy collection install community.docker
+
+      - name: Check playbook syntax
+        run: |
+          . .venv/bin/activate
+          ansible-playbook --syntax-check \
+            -i ansible/inventory.ini \
+            ansible/bootstrap.yml
+
+      - name: Lint Ansible playbook
+        run: |
+          . .venv/bin/activate
+          ansible-lint ansible/bootstrap.yml
