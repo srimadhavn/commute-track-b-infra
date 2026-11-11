@@ -1,0 +1,26 @@
+---
+- name: Configure Commute Planner infrastructure target
+  hosts: commute_targets
+  gather_facts: true
+
+  tasks:
+    - name: Install required system packages
+      ansible.builtin.apt:
+        name:
+          - curl
+          - git
+          - unzip
+        state: present
+        update_cache: true
+
+    - name: Create infrastructure marker file
+      ansible.builtin.copy:
+        dest: /etc/commute-infra-managed
+        content: "Managed by Ansible\n"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Display operating system information
+      ansible.builtin.debug:
+        msg: "Configured {{ ansible_distribution }} {{ ansible_distribution_version }}"
