@@ -1,0 +1,87 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: commute-api
+  namespace: commute-planner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: commute-api
+  template:
+    metadata:
+      labels:
+        app: commute-api
+    spec:
+      containers:
+        - name: api
+          image: commute-track-b-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: REGION
+              value: "nyc"
+            - name: CORS_ORIGIN
+              value: "*"
+            - name: PGHOST
+              value: "db"
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: commute-db-secret
+                  key: POSTGRES_DB
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: commute-db-secret
+                  key: POSTGRES_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: commute-db-secret
+                  key: POSTGRES_PASSWORD
+            - name: ORS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: commute-api-secret
+                  key: ORS_API_KEY
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+             
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: commute-api
+  namespace: commute-planner
+spec:
+  selector:
+    app: commute-api
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: ClusterIP

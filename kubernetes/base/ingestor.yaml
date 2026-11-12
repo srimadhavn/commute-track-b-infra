@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: commute-ingestor
+  namespace: commute-planner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: commute-ingestor
+  template:
+    metadata:
+      labels:
+        app: commute-ingestor
+    spec:
+      containers:
+        - name: ingestor
+          image: commute-track-b-ingestor:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: metrics
+              containerPort: 9101
+          env:
+            - name: GBFS_BASE_URL
+              value: "https://gbfs.citibikenyc.com/gbfs/en"
+            - name: INGEST_INTERVAL_SEC
+              value: "120"
+            - name: METRICS_PORT
+              value: "9101"
+            - name: PGHOST
+              value: "db"
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: commute-db-secret
+                  key: POSTGRES_DB
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: commute-db-secret
+                  key: POSTGRES_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: commute-db-secret
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 9101
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            failureThreshold: 4
+          livenessProbe:
+            tcpSocket:
+              port: 9101
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: commute-ingestor
+  namespace: commute-planner
+spec:
+  selector:
+    app: commute-ingestor
+  ports:
+    - name: metrics
+      port: 9101
+      targetPort: 9101
+  type: ClusterIP
